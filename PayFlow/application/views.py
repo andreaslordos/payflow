@@ -1,7 +1,7 @@
 '''
 authors:
-    Andreas Lordos (17, English School of Nicosia)
-    Christos Falas(16, English School of Nicosia)
+    Andreas Lordos (17, The English School of Nicosia)
+    Christos Falas (15, The English School of Nicosia)
 '''
 from django.shortcuts import render
 from django.http import HttpResponse
@@ -13,6 +13,7 @@ from .registration import register
 import logging
 import os
 
+MONEY_CAP=100
 sessions=[]
 logging.basicConfig(level=logging.INFO) #sets up logging module
 logger = logging.getLogger(__name__)
@@ -22,9 +23,10 @@ os.chdir("application") #to be in the same dir as users.json
 
 @csrf_exempt
 def index(request):
+    messages={'messages':[]}
     global sessions
     logging.info(sessions)
-    current_code=randint(300000,999999) #generate code for session that will be used to verify receiver and sender
+    current_code=randint(100000,999999) #generate code for session that will be used to verify receiver and sender
     #However, current_code would be implemented in a way that guarantees there will not be a collision if this was deployed in the real world
     logging.info(request.POST.get('event'))
 
@@ -85,16 +87,22 @@ def index(request):
             pass
         return False #user not registered, return False
 
-    if request.POST.get('event') == '"register"': #
+    def addMessage(content,recipient):
+        messages['messages'].append({'content':content,
+                                    'to_number':recipient})
+        return messages
+
+    if request.POST.get('event') == "'register'":
         phone=str(request.POST.get('phone'))
         register(request.POST.get('phone'))
         return HttpResponse("Done")
     else:
         logging.info("Not registering")
         if request.POST.get('secret') != webhook_secret:
-            logging.info("Wrong secret, got "+request.POST.get('secret'))
-            fullstr="Invalid webhook secret"+str(request.POST.get('secret'))
-            return HttpResponse(fullstr)
+            logging.info("Wrong secret, got ")
+            logging.info(request.POST.get('secret'))
+            return HttpResponse("Invalid webhook secret")
+
         logging.info("Secret verified")
         if request.POST.get('event') == 'incoming_message':
             logging.info("Incoming message")
@@ -108,6 +116,9 @@ def index(request):
                     register(from_number)
                 try:
                     sessions,fullstr=generateCode(sessions,content,current_code,from_number)
+                    if sessions[-1].amount>MONEY_CAP: #check if most recently added session is above MONEY_CAP
+                        fullstr='The maximum amount of money you can send is 250 euros.'
+
                 except:
                     sessions=[]
                     sessions,fullstr=generateCode(sessions,content,current_code,from_number)
@@ -120,15 +131,22 @@ def index(request):
                         if not isRegistered(from_number):
                             register(from_number)
                         payment(session.receiver,session.sender,session.amount)
+                        fullstr="Transaction complete. You received "+str(session.amount)
+                        messages=addMessage(fullstr,session.receiver_phone)
+                        fullstr="Transaction complete. You sent "+str(session.amount)
                         sessions.remove(session)
-                        fullstr="Transaction complete."
                 if done==False:
                     fullstr="Invalid ID sent. Please try again."
             else:
-                fullstr="Invalid."
+                fullstr="Sorry, I'm not quite sure what you want to do. To request money, send me 'gen [amount]' without the quotes or square brackets - for example, gen 50 would request 50 euros."
             logging.info(str(sessions))
+            logging.info(messages['messages'])
+            logging.info(fullstr)
+            logging.info(from_number)
+            messages=addMessage(fullstr,from_number)
+            logging.info(messages['messages'])
             return HttpResponse(json.dumps({
-                'messages': [
-                    {'content': fullstr}
-                ]
+                'messages':
+                    messages['messages']
+
             }), 'application/json')
