@@ -22,7 +22,7 @@ def index(request):
             code=str(randint(100000,999999))
 
             money=str(content.split()[1])
-            fullstr="To send "+money+" euros to your friend, they need to send the code "+code+" to the phone number: 50032"
+            fullstr="To get "+money+" euros from your friend, they need to send the code "+code+" to the phone number: 50032"
         else:
             fullstr="Haha bad ways"
         return HttpResponse(json.dumps({
