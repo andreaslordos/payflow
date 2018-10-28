@@ -1,7 +1,8 @@
 from datetime import datetime
 import logging
+
 class Session:
-    def __init__(self,id,amount,receiver_phone):
+    def __init__(self, id, amount, receiver_phone):
         self.timestamp=datetime.now()
         self.id=id
         self.receiver=None
