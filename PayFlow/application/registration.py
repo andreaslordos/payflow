@@ -1,14 +1,15 @@
 #To do [cfalas]: implement registration system with the bocAPI
 import json
 import logging
-def register(phone_number):
+def register(phone_number,bank_account_number,subs):
     logging.info("In register function")
     '''
     Input: None
     Output: None,  but write to
     '''
-    temp_dict = {phone_number: '294539573498573489579'}
+    temp_dict = {phone_number: (bank_account_number,subs)}
     logging.info(temp_dict)
+
     with open('users.json') as f:
         data = json.load(f)
 

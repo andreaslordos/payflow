@@ -7,11 +7,14 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
+from math import floor,log10
 from random import randint
 from .sessionsc import Session
 from .registration import register
+from .nlp import determineAction
 import logging
 import os
+import nltk
 
 MONEY_CAP=100
 sessions=[]
@@ -39,11 +42,11 @@ def index(request):
         Output:
             fullstr,String
         '''
-        money=str(content.split()[1]) #Get the amount that the receiver wants to receive from sender
+        money=float(currencify(content.split()[1])) #Get the amount that the receiver wants to receive from sender
         logging.info("Current code:")
         logging.info(current_code)
-        sessions.append(Session(current_code,int(money),phone)) #Create a new Session instance, add it to the array of current sessions
-        fullstr="To get "+str(money)+" euros from your friend, they need to send the code "+str(current_code)+" to the phone number: 99795260" #This is what will be returned to the user
+        sessions.append(Session(current_code,money,phone)) #Create a new Session instance, add it to the array of current sessions
+        fullstr="To get "+currencify(float(money))+" euros from your friend, they need to send the code "+str(current_code)+" to the phone number: 99795260" #This is what will be returned to the user
         return sessions,fullstr
 
     def payment(receiver_phone,sender_phone,amount):
@@ -88,13 +91,36 @@ def index(request):
         return False #user not registered, return False
 
     def addMessage(content,recipient):
-        messages['messages'].append({'content':content,
-                                    'to_number':recipient})
+        messages['messages'].append({'content':content,'to_number':recipient})
         return messages
+
+    def currencify(this_str):
+        def round_sig(x, sig=2):
+            if x==0:
+                return 0
+            else:
+                return round(x, sig-int(floor(log10(abs(x))))-1)
+        this_str=str(this_str)
+        special_char=None
+        if "." in this_str:
+            special_char="."
+        elif "," in this_str:
+            special_char=","
+        else:
+            return this_str+".00"
+        return_val=this_str.split(special_char)[0]+special_char+str(round_sig(int(this_str.split(special_char)[1])))[:2]
+        if len(return_val.split(special_char)[1])==1:
+            return return_val+"0"
+        elif len(return_val.split(special_char)[1])==0:
+            return return_val+"00"
+        else:
+            return return_val
 
     if request.POST.get('event') == "'register'":
         phone=str(request.POST.get('phone'))
-        register(request.POST.get('phone'))
+        bank_number=str(request.POST.get('bank'))
+        sub_id=str(request.POST.get('subs'))
+        register(phone,bank_number,sub_id)
         return HttpResponse("Done")
     else:
         logging.info("Not registering")
@@ -106,22 +132,23 @@ def index(request):
         logging.info("Secret verified")
         if request.POST.get('event') == 'incoming_message':
             logging.info("Incoming message")
-            content = request.POST.get('content')
+            content = (request.POST.get('content')).lower()
+            content = determineAction(content)
             from_number = request.POST.get('from_number')
             phone_id = request.POST.get('phone_id')
             logging.info("Content: "+content)
             if content.split()[0]=="gen" and isCurrency(content.split()[1]): #implement NLP later
                 if not isRegistered(from_number):
                     logging.info(os.getcwd())
-                    register(from_number)
-                try:
-                    sessions,fullstr=generateCode(sessions,content,current_code,from_number)
-                    if sessions[-1].amount>MONEY_CAP: #check if most recently added session is above MONEY_CAP
-                        fullstr='The maximum amount of money you can send is 250 euros.'
-
-                except:
-                    sessions=[]
-                    sessions,fullstr=generateCode(sessions,content,current_code,from_number)
+                    fullstr="Please register using the link tasosfalas.com/payflow"
+                else:
+                    try:
+                        sessions,fullstr=generateCode(sessions,content,current_code,from_number)
+                        if sessions[-1].amount>MONEY_CAP: #check if most recently added session is above MONEY_CAP
+                            fullstr='The maximum amount of money you can send is 250 euros.'
+                    except:
+                        sessions=[]
+                        sessions,fullstr=generateCode(sessions,content,current_code,from_number)
             elif content.split()[0].isdigit() and len(content.split())==1:
                 done=False
                 requested_id=int(content.split()[0])
@@ -129,12 +156,13 @@ def index(request):
                     if session.id==requested_id:
                         done=True
                         if not isRegistered(from_number):
-                            register(from_number)
-                        payment(session.receiver,session.sender,session.amount)
-                        fullstr="Transaction complete. You received "+str(session.amount)
-                        messages=addMessage(fullstr,session.receiver_phone)
-                        fullstr="Transaction complete. You sent "+str(session.amount)
-                        sessions.remove(session)
+                            fullstr="Please register using the link tasosfalas.com/payflow"
+                        else:
+                            payment(session.receiver,session.sender,session.amount)
+                            fullstr="Transaction complete. You received "+currencify(session.amount)
+                            messages=addMessage(fullstr,session.receiver_phone)
+                            fullstr="Transaction complete. You sent "+currencify(session.amount)
+                            sessions.remove(session)
                 if done==False:
                     fullstr="Invalid ID sent. Please try again."
             else:
