@@ -26,6 +26,7 @@ os.chdir("application") #to be in the same dir as users.json
 
 @csrf_exempt
 def index(request):
+    logging.info("Got a new request")
     messages={'messages':[]}
     global sessions
     logging.info(sessions)
@@ -167,9 +168,9 @@ def index(request):
                             fullstr="Please register using the link tasosfalas.com/payflow" #if user is not registered
                         else:
                             payment(session.receiver,session.sender,session.amount) #if user is registered, facilitate transaction between the two
-                            fullstr="Transaction complete. You received "+currencify(session.amount) #message for receiver
+                            fullstr="Transaction complete. You received €"+currencify(session.amount) #message for receiver
                             messages=addMessage(fullstr,session.receiver_phone)
-                            fullstr="Transaction complete. You sent "+currencify(session.amount) #message for sender
+                            fullstr="Transaction complete. You sent €"+currencify(session.amount) #message for sender
                             sessions.remove(session)
                 if done==False: #if the transaction was not found.
                     fullstr="Invalid ID sent. Please try again."

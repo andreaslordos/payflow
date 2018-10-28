@@ -2,6 +2,10 @@
 import json
 import logging
 def register(phone_number,bank_account_number,subs):
+    phone_number.replace(" ","")
+    phone_number.replace("'","")
+    if phone_number[0]!="+":
+        phone_number="+"+phone_number
     logging.info("In register function")
     '''
     Input: None
