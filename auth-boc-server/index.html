@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Register for PayFlow</title>
+		<link rel="shortcut icon" href="css/favicon.jpg">
+		<meta name="viewport" content="width=device-width, initial-scale=1"><link href='https://fonts.googleapis.com/css?family=Roboto:400,700' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css">
+		<link rel="stylesheet" href="css/style.css">	
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+	</head>
+
+    <body>
+        <script>
+			function getCookie(cname) {
+				var name = cname + "=";
+				var decodedCookie = decodeURIComponent(document.cookie);
+				var ca = decodedCookie.split(';');
+				for(var i = 0; i <ca.length; i++) {
+					var c = ca[i];
+					while (c.charAt(0) == ' ') {
+						c = c.substring(1);
+					}
+					if (c.indexOf(name) == 0) {
+						return c.substring(name.length, c.length);
+					}
+				}
+				return "";
+			}
+           
+            var baseURL = "https://sandbox-apis.bankofcyprus.com/df-boc-org-sb/sb/psd2";
+			$(document).ready(function(){
+				$("#register").on('submit', function(){
+					var phone = $("#phone").val();
+					if(phone=='')
+					{
+						alert("Please Fill All Fields");
+					}
+					else
+					{
+					   
+						// handles the click event, sends the query
+				   $.ajax({
+					  url:'token.php',
+					  success: function (response) {
+							var expires = "";
+							var date = new Date();
+							date.setTime(date.getTime() + (100*600*1000));
+							expires = date.toUTCString();
+							document.cookie += 'phone=' + phone + '; expires=' + expires + '; path=/';
+							document.cookie += 'secret=' + response.split('|')[1] + '; expires=' + expires + '; path=/';
+							document.cookie += 'oath=' + response.split('|')[0] + '; expires=' + expires + '; path=/';
+                          
+                            setTimeout(function(){
+							window.top.location.href = "https://sandbox-apis.bankofcyprus.com/df-boc-org-sb/sb/psd2/oauth2/authorize?response_type=code&;redirect_uri=htttps://tasosfalas.com/payflow/receive.php&scope=UserOAuth2Security&client_id=7461dc28-b96e-44de-b898-7f10d0829f8b&subscriptionid=" + response.split('|')[1];
+                                }, 1000);
+					  }
+				  });
+					}
+				   
+				   
+					return false;
+				});
+			});
+        </script>
+    </body>
+    <body>
+    <div class="user">
+		<header class="user__header">
+        <img src="css/logo_t.png" alt="" />
+        <h1 class="user__title">Join the mobile payment revolution.</h1>
+		</header>
+	</div>		
+    
+    <form class="form" id="register" method="POST">
+        <div class="form__group">
+            <input type="text" placeholder="Phone number" class="form__input" id="phone"/>
+        </div>
+       
+        <button class="btn" type="submit">Register</button>
+    </form>
+    </body>
+</html>

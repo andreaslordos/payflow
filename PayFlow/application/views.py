@@ -14,9 +14,10 @@ from .registration import register
 from .nlp import determineAction
 import logging
 import os
-import nltk
+import http.client
 
-MONEY_CAP=100
+
+MONEY_CAP=150
 sessions=[]
 logging.basicConfig(level=logging.INFO) #sets up logging module
 logger = logging.getLogger(__name__)
@@ -59,7 +60,25 @@ def index(request):
         Output:
             fullstr,String
         '''
-        return
+        '''
+        auth = ''
+        conn = http.client.HTTPSConnection("sandbox-apis.bankofcyprus.com")
+
+        payload = "{\"id\":8910158581202944}"
+
+        headers = {
+            'content-type': "application/json",
+            'accept': "application/json"
+            }
+
+        conn.request("POST", "/df-boc-org-sb/sb/jwssignverifyapi/sign", payload, headers)
+
+        res = conn.getresponse()
+        data = res.read()
+
+        print(data.decode("utf-8"))
+                return
+        '''
 
     def isCurrency(a_str):
         '''
@@ -130,6 +149,9 @@ def index(request):
         phone=str(request.POST.get('phone'))
         bank_number=str(request.POST.get('bank'))
         sub_id=str(request.POST.get('subs'))
+        logging.info("Phone "+str(phone))
+        logging.info(bank_number)
+        logging.info(sub_id)
         register(phone,bank_number,sub_id)
         return HttpResponse("Done")
     else:
@@ -146,11 +168,8 @@ def index(request):
             content = determineAction(content) #use NLP to convert users message to protocol-suitable text
             from_number = request.POST.get('from_number') #retrieve phone number of user who sent message
             logging.info("Content: "+content)
-            if content.split()[0]=="gen" and isCurrency(content.split()[1]): #check if instruction follows protocol (it should b/c of NLP above)
-                if not isRegistered(from_number): #if phone number not in users.json
-                    logging.info(os.getcwd())
-                    fullstr="Please register using the link tasosfalas.com/payflow" #tell user to register
-                else: #if user is registereed
+            if isRegistered(from_number):
+                if content.split()[0]=="gen" and isCurrency(content.split()[1]): #check if instruction follows protocol (it should b/c of NLP above)
                     try:
                         sessions,fullstr=generateCode(sessions,content,current_code,from_number) #add a new session to sessions
                         if sessions[-1].amount>MONEY_CAP: #check if most recently added session is above MONEY_CAP
@@ -158,30 +177,29 @@ def index(request):
                     except: #if above produces an error, it means that sessions isn't yet defined.
                         sessions=[] #define sessions
                         sessions,fullstr=generateCode(sessions,content,current_code,from_number) #retry
-            elif content.split()[0].isdigit() and len(content.split())==1: #else if the user is trying to SMS a code to authorize a transaction and send money
-                done=False #set flag to False
-                requested_id=int(content.split()[0]) #get ID of transaction that the user is trying to authorize
-                for session in sessions: #search for the session with the requested_id using a for loop
-                    if session.id==requested_id:
-                        done=True #if found, set flag to True
-                        if not isRegistered(from_number):
-                            fullstr="Please register using the link tasosfalas.com/payflow" #if user is not registered
-                        else:
+                elif content.split()[0].isdigit() and len(content.split())==1: #else if the user is trying to SMS a code to authorize a transaction and send money
+                    done=False #set flag to False
+                    requested_id=int(content.split()[0]) #get ID of transaction that the user is trying to authorize
+                    for session in sessions: #search for the session with the requested_id using a for loop
+                        if session.id==requested_id:
+                            done=True #if found, set flag to True
                             payment(session.receiver,session.sender,session.amount) #if user is registered, facilitate transaction between the two
                             fullstr="Transaction complete. You received €"+currencify(session.amount) #message for receiver
                             messages=addMessage(fullstr,session.receiver_phone)
                             fullstr="Transaction complete. You sent €"+currencify(session.amount) #message for sender
                             sessions.remove(session)
-                if done==False: #if the transaction was not found.
-                    fullstr="Invalid ID sent. Please try again."
+                    if done==False: #if the transaction was not found.
+                        fullstr="Invalid ID sent. Please try again."
+                else:
+                    fullstr="Sorry, I'm not quite sure what you want to do. To request money, send the message 'I want a code for 20 euros' and then give the code that I'll send you back to your friend/customer."
+                logging.info(str(sessions))
+                logging.info(messages['messages'])
+                logging.info(fullstr)
+                logging.info(from_number)
+                messages=addMessage(fullstr,from_number)
+                logging.info(messages['messages'])
             else:
-                fullstr="Sorry, I'm not quite sure what you want to do. To request money, send the message 'I want a code for 20 euros' and then give the code that I'll send you back to your friend/customer."
-            logging.info(str(sessions))
-            logging.info(messages['messages'])
-            logging.info(fullstr)
-            logging.info(from_number)
-            messages=addMessage(fullstr,from_number)
-            logging.info(messages['messages'])
+                messages=addMessage("Please register at tasosfalas.com/payflow",from_number)
             return HttpResponse(json.dumps({ #send message back
                 'messages':
                     messages['messages']
