@@ -1,3 +1,5 @@
+![Logo](https://i.imgur.com/jznnJqy.png)
+
 # PayFlow
 
 [Visit our website](http://www.andreasglordos.wixsite.com/payflow)
